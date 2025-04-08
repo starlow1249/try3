@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="he">
+<head>
+  <meta charset="UTF-8">
+  <title>כניסה לפי סיסמה ופרשה</title>
+  <style>
+    body {
+      font-family: Arial;
+      direction: rtl;
+      text-align: center;
+      padding: 20px;
+    }
+    iframe {
+      width: 100%;
+      height: 500px;
+      border: none;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <h2>כניסה למצגות לפי פרשה</h2>
+  <input type="text" id="parashaInput" placeholder="הכנס פרשה">
+  <button onclick="checkPassword()">שלח</button>
+
+  <div id="result"></div>
+
+  <script>
+    const sheetId = "1YWCM1uctEsK-504WkMSdsBm5y56GBwRB3Hy_r1OYXuI"; // מזהה הגיליון שלך
+    const apiKey = "AIzaSyClmkLxcxXdKkrmGVY2fjTsVgf31RcMS_4"; // המפתח API שלך
+    const sheetRange = "A:D"; // כולל סיסמה, פרשה, שם, קישור
+
+    async function checkPassword() {
+      const parasha = document.getElementById("parashaInput").value.trim();
+      const resultDiv = document.getElementById("result");
+      resultDiv.innerHTML = "";
+
+      try {
+        const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${sheetRange}?key=${apiKey}`);
+        const data = await response.json();
+
+        if (!data.values || data.values.length === 0) {
+          resultDiv.innerText = "לא נמצאו נתונים בגיליון.";
+          return;
+        }
+
+        const rows = data.values;
+        const header = rows[0];
+        const passwordIndex = header.indexOf("סיסמה");
+        const parashaIndex = header.indexOf("פרשה");
+        const nameIndex = header.indexOf("שם");
+        const linkIndex = header.indexOf("קישור");
+
+        // קבלת הסיסמה ישירות מ-A2
+        const password = rows[1][passwordIndex];
+
+        const filtered = rows.slice(1).filter(row =>
+          row[parashaIndex] === parasha
+        );
+
+        if (filtered.length === 0) {
+          resultDiv.innerText = "פרשה לא נכונה או שאין מסמכים לפרשה זו.";
+          return;
+        }
+
+        filtered.forEach(row => {
+          const name = row[nameIndex];
+          const docLink = row[linkIndex];
+          let embedLink = docLink;
+
+          // Google Docs
+          if (docLink.includes('docs.google.com/document/d/')) {
+            const docId = docLink.split('/d/')[1].split('/')[0];
+            embedLink = `https://docs.google.com/document/d/${docId}/preview`;
+          }
+          // Google Slides
+          else if (docLink.includes('docs.google.com/presentation/d/')) {
+            const docId = docLink.split('/d/')[1].split('/')[0];
+            embedLink = `https://docs.google.com/presentation/d/${docId}/embed?start=false&loop=false&delayms=3000`;
+          }
+          // Google Drive (PDF וכו’)
+          else if (docLink.includes('drive.google.com/file/d/')) {
+            const fileId = docLink.split('/d/')[1].split('/')[0];
+            embedLink = `https://drive.google.com/file/d/${fileId}/preview`;
+          }
+
+          const title = document.createElement("h3");
+          title.textContent = name;
+          const iframe = document.createElement("iframe");
+          iframe.src = embedLink;
+
+          resultDiv.appendChild(title);
+          resultDiv.appendChild(iframe);
+        });
+      } catch (error) {
+        resultDiv.innerText = "אירעה שגיאה בעת שליפת הנתונים.";
+        console.error(error);
+      }
+    }
+  </script>
+</body>
+</html>
